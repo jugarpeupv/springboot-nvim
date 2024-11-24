@@ -21,13 +21,13 @@ local function get_spring_boot_project_root()
 	return lspconfig.util.root_pattern(unpack(root_pattern))(current_file)
 end
 
-local function get_run_command(args)
-	local maven_file = vim.fn.findfile("pom.xml", vim.fn.getcwd())
-	local gradle_file = vim.fn.findfile("build.gradle", vim.fn.getcwd())
+local function get_run_command(args, project_root)
+	local maven_file = vim.fn.findfile("pom.xml", project_root or vim.fn.getcwd())
+	local gradle_file = vim.fn.findfile("build.gradle", project_root or vim.fn.getcwd())
 
-	if maven_file then
+	if #maven_file > 1 then
 		return string.format(':call jobsend(b:terminal_job_id, "mvn spring-boot:run %s \\n")', args)
-	elseif gradle_file then
+	elseif #gradle_file > 1 then
 		return ':call jobsend(b:terminal_job_id, "gradle bootRun\\n")'
 	else
 		return "Unknown"
@@ -43,7 +43,7 @@ local function boot_run(args)
 		vim.cmd("norm G")
 		local cd_cmd = ':call jobsend(b:terminal_job_id, "cd ' .. project_root .. '\\n")'
 		vim.cmd(cd_cmd)
-		local run_cmd = get_run_command(args or "")
+		local run_cmd = get_run_command(args or "", project_root)
 		vim.cmd(run_cmd)
 		vim.cmd("wincmd k")
 	else
