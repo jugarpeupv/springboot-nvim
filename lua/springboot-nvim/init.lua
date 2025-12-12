@@ -5,10 +5,10 @@ require("create_springboot_project")
 local lspconfig = require("lspconfig")
 local jdtls = require("jdtls")
 
+local on_compile_result = nil
+
 local function incremental_compile()
-  jdtls.compile("incremental")
-  -- jdtls.build_projects({ select_mode =  "prompt", full_build = false })
-  -- jdtls.build_projects({ full_build = true })
+	jdtls.compile("incremental", on_compile_result)
 end
 
 local function is_plugin_installed(plugin)
@@ -17,23 +17,49 @@ local function is_plugin_installed(plugin)
 end
 
 local function get_spring_boot_project_root()
-  local current_file = vim.fn.expand("%:p")
-  local root_pattern = { "pom.xml", "build.gradle", ".git" }
+	local current_file = vim.fn.expand("%:p")
+	if current_file == "" then
+		print("No file is currently open.")
+		return nil
+	end
 
-  return lspconfig.util.root_pattern(unpack(root_pattern))(current_file)
+	local root_pattern = { "pom.xml", "build.gradle", "build.gradle.kts", ".git" }
+
+	local root_dir = lspconfig.util.root_pattern(unpack(root_pattern))(current_file)
+	if not root_dir then
+		print("Project root not found.")
+		return nil
+	end
+
+	return root_dir
 end
 
-local function get_run_command(args, project_root)
-  local maven_file = vim.fn.findfile("pom.xml", project_root or vim.fn.getcwd())
-  local gradle_file = vim.fn.findfile("build.gradle", project_root or vim.fn.getcwd())
+local function get_run_command(args)
+	local project_root = get_spring_boot_project_root()
+	if not project_root then
+		return "Unknown"
+	end
 
-  if maven_file ~= "" then
-    return string.format(':call jobsend(b:terminal_job_id, "mvn spring-boot:run %s \\n")', args)
-  elseif gradle_file ~= "" then
-    return ':call jobsend(b:terminal_job_id, "./gradlew bootRun --debug-jvm\\n")'
-  else
-    return "Unknown"
-  end
+	local maven_file = vim.fn.findfile("pom.xml", project_root)
+	local gradle_file = vim.fn.findfile("build.gradle", project_root)
+	local kts_gradle_file = vim.fn.findfile("build.gradle.kts", project_root)
+
+	if maven_file ~= "" then
+		return string.format(
+			':call jobsend(b:terminal_job_id, "cd %s && mvn spring-boot:run %s \\n")',
+			project_root,
+			args or ""
+		)
+	elseif gradle_file or kts_gradle_file ~= "" then
+		return string.format(
+			':call jobsend(b:terminal_job_id, "cd %s && ./gradlew bootRun %s \\n")',
+			project_root,
+			args or ""
+		)
+	else
+		print("No build file (pom.xml or build.gradle) found in the project root.")
+		return "Unknown"
+	end
 end
 
 local function boot_run(args)
@@ -87,15 +113,16 @@ local function new_boot_run(args)
 end
 
 local function contains_package_info(file_path)
-  local file = io.open(file_path, "r")
-  if not file then
-    return false
-  end
+	local file = io.open(file_path, "r")
+	if not file then
+		return false
+	end
+	local current_position = file:seek()
+	local file_size = file:seek("end")
+	file:seek("set", current_position)
+	file:close()
 
-  local first_line = file:read("*l")
-  file:close()
-
-  return first_line and first_line:find("package", 1, true) ~= nil
+	return file_size > 0
 end
 
 local function get_java_package(file_path)
@@ -138,14 +165,11 @@ end
 -- key mapping
 
 -- auto commands
-local function setup()
-  local project_root = get_spring_boot_project_root()
-  local maven_file = vim.fn.findfile("pom.xml", project_root or vim.fn.getcwd())
-  -- local gradle_file = vim.fn.findfile("build.gradle", project_root or vim.fn.getcwd())
+local function setup(opts)
+	on_compile_result = opts.on_compile_result
 
-  if maven_file and maven_file ~= "" then
-    vim.api.nvim_exec(
-      [[
+	vim.api.nvim_exec(
+		[[
     augroup JavaAutoCommands
         autocmd!
         autocmd BufWritePost *.java lua require('springboot-nvim').incremental_compile()

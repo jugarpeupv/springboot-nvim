@@ -23,14 +23,19 @@ Basic installation requires nvim-lspconfig and nvim-jdtls to auto compile, and g
 ```lua
 return {
     "elmcgill/springboot-nvim",
-    depedencies = {
+    dependencies = {
         "neovim/nvim-lspconfig",
         "mfussenegger/nvim-jdtls",
         "nvim-tree/nvim-tree.lua",
     },
     config = function()
         local springboot_nvim = require("springboot-nvim")
-        springboot_nvim.setup({})
+        springboot_nvim.setup({
+            -- callback of type fun(result: table[]): nil called on JDTLS compilation result,
+            -- nil defaults to opening a quickfix list if there are errors
+            -- see :h jdtls.compile
+            on_compile_result = nil
+        })
     end
 }
 ```
@@ -40,7 +45,7 @@ Recommended installation and configuration
 ```lua
 return {
     "elmcgill/springboot-nvim",
-    depedencies = {
+    dependencies = {
         "neovim/nvim-lspconfig",
         "mfussenegger/nvim-jdtls"
     },
@@ -70,8 +75,21 @@ To use this feature, simply run the following command in Neovim:
 ```vim
 :SpringBootNewProject
 ```
-
 This will initiate the process of creating a new Spring Boot project tailored to your specifications.
+
+This functionality requires `Spring Boot CLI` tool.
+It can be installed using either SDKMAN or Homebrew:
+### SDKMAN
+```sh
+$ sdk install springboot
+$ spring --version
+Spring CLI v3.3.4
+```
+### Homebrew
+```sh
+$ brew tap spring-io/tap
+$ brew install spring-boot
+```
 
 ## Contributing
 
