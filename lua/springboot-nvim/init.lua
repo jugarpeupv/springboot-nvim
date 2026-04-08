@@ -166,6 +166,7 @@ end
 
 -- auto commands
 local function setup(opts)
+	opts = opts or {}
 	on_compile_result = opts.on_compile_result
 
 	vim.api.nvim_exec(
@@ -177,7 +178,6 @@ local function setup(opts)
 ]],
       false
     )
-  end
 
   vim.api.nvim_exec(
     [[
